@@ -109,6 +109,8 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
   let refreshing: Promise<boolean> | null = null;
   let bootstrapping: Promise<AuthState> | null = null;
   let expiredNotified = false;
+  /** Bumped on every logout, so a renewal that answers afterwards is discarded instead of reviving the session. */
+  let sessionGeneration = 0;
 
   const channel = options.crossTab === false ? null : (options.openChannel ?? defaultChannel)(options.channelName ?? 'secure-auth');
 
@@ -141,6 +143,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
 
     token = null;
     expiresAt = 0;
+    sessionGeneration += 1;
     setState({ status: 'guest', me: null });
 
     if (notifyOthers && hadSession) {
@@ -198,6 +201,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
   }
 
   async function requestRefresh(): Promise<boolean> {
+    const generation = sessionGeneration;
     let response: Response;
 
     try {
@@ -221,7 +225,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     const body = (await readJson(response)) as { authorization?: Authorization } | null;
     const next = body?.authorization?.token;
 
-    if (!response.ok || typeof next !== 'string') {
+    if (!response.ok || typeof next !== 'string' || generation !== sessionGeneration) {
       return false;
     }
 

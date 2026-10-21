@@ -328,6 +328,31 @@ describe('logout', () => {
     expect(client.getAccessToken()).toBeNull();
   });
 
+  it('ignores a renewal that answers after the logout', async () => {
+    let answerRefresh: (reply: Reply) => void = () => undefined;
+    const onSessionExpired = vi.fn();
+    const { client } = api(
+      (request) => {
+        if (path(request) === '/api/auth/refresh') {
+          return new Promise<Reply>((resolve) => {
+            answerRefresh = resolve;
+          });
+        }
+
+        return path(request) === '/api/me' ? { status: 200, body: me() } : path(request) === '/api/auth/login' ? refreshReply() : OK;
+      },
+      { onSessionExpired },
+    );
+    await client.login({ email: 'ana@example.test', password: 'secret' });
+    const renewing = client.refresh();
+
+    await client.logout();
+    answerRefresh(refreshReply());
+    await renewing;
+
+    expect([client.getAccessToken(), client.getState().status, onSessionExpired.mock.calls.length]).toEqual([null, 'guest', 0]);
+  });
+
   it('notifies subscribers of every change', async () => {
     const { client } = api(routes({ '/api/auth/login': refreshReply(), '/api/me': { status: 200, body: me() }, '/api/auth/logout': OK }));
     const listener = vi.fn();
