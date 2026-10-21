@@ -49,7 +49,9 @@ export interface AuthClient {
   dispose(): void;
 }
 
-type ChannelMessage = { type: 'session'; token: string; me: MeResponse | null } | { type: 'logout' };
+type ChannelMessage = { type: 'session'; token: string; expiresAt: number; me: MeResponse | null } | { type: 'logout' };
+
+type Authorization = { token?: unknown; expires_in?: unknown };
 
 const HTTP_NO_CONTENT = 204;
 const HTTP_UNAUTHORIZED = 401;
@@ -123,9 +125,14 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     }
   }
 
-  function storeToken(next: string) {
+  /** Times the expiry by `expires_in` on this clock, so a client clock that is off does not matter. */
+  function expiryOf(next: string, expiresInSeconds: unknown): number {
+    return typeof expiresInSeconds === 'number' ? Date.now() + expiresInSeconds * MS_PER_SECOND : (decodeAccessToken(next)?.exp ?? 0) * MS_PER_SECOND;
+  }
+
+  function storeToken(next: string, expiry: number) {
     token = next;
-    expiresAt = (decodeAccessToken(next)?.exp ?? 0) * MS_PER_SECOND;
+    expiresAt = expiry;
     expiredNotified = false;
   }
 
@@ -162,7 +169,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
         return;
       }
 
-      storeToken(message.token);
+      storeToken(message.token, message.expiresAt);
       setState(message.me ? { status: 'authenticated', me: message.me } : state);
     };
   }
@@ -211,15 +218,15 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
       return false;
     }
 
-    const body = (await readJson(response)) as { authorization?: { token?: unknown } } | null;
+    const body = (await readJson(response)) as { authorization?: Authorization } | null;
     const next = body?.authorization?.token;
 
     if (!response.ok || typeof next !== 'string') {
       return false;
     }
 
-    storeToken(next);
-    broadcast({ type: 'session', token: next, me: state.me });
+    storeToken(next, expiryOf(next, body?.authorization?.expires_in));
+    broadcast({ type: 'session', token: next, expiresAt, me: state.me });
 
     return true;
   }
@@ -299,7 +306,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     setState({ status: 'authenticated', me });
 
     if (token !== null) {
-      broadcast({ type: 'session', token, me });
+      broadcast({ type: 'session', token, expiresAt, me });
     }
 
     return me;
@@ -311,7 +318,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
       challenge?: string;
       methods?: TwoFactorMethod[];
       expires_in?: number;
-      authorization?: { token: string };
+      authorization?: { token: string; expires_in?: unknown };
     };
 
     if (body.two_factor === true && typeof body.challenge === 'string') {
@@ -322,7 +329,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
       throw new AuthError(response.status, null, 'The server did not return an access token.', body);
     }
 
-    storeToken(body.authorization.token);
+    storeToken(body.authorization.token, expiryOf(body.authorization.token, body.authorization.expires_in));
 
     return { status: 'authenticated', me: await loadMeInto() };
   }
@@ -348,7 +355,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
           throw await toError(response);
         }
 
-        const body = (await response.json()) as { authorization?: { token?: unknown } };
+        const body = (await response.json()) as { authorization?: Authorization };
 
         if (typeof body.authorization?.token !== 'string') {
           clearSession(false);
@@ -356,7 +363,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
           return state;
         }
 
-        storeToken(body.authorization.token);
+        storeToken(body.authorization.token, expiryOf(body.authorization.token, body.authorization.expires_in));
       }
 
       await loadMeInto();

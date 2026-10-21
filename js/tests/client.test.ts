@@ -167,6 +167,19 @@ describe('authenticated requests', () => {
     expect(sent[1]?.headers.get('Authorization')).toBe(`Bearer ${fresh}`);
   });
 
+  it('time the renewal by expires_in, so a client clock running ahead does not renew on every request', async () => {
+    const token = fakeJwt();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 15 * 60 * 1000);
+    const { client, sent } = await signedIn((request) => (path(request) === '/api/auth/refresh' ? refreshReply(token) : OK), token);
+
+    await client.fetch('reports');
+    await client.fetch('reports');
+    vi.useRealTimers();
+
+    expect(sent.map(path)).toEqual(['/api/reports', '/api/reports']);
+  });
+
   it('renew once and retry after a 401', async () => {
     const fresh = fakeJwt('7', 15);
     const { client, sent } = await signedIn((request) => {
