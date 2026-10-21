@@ -28,7 +28,7 @@ class PermissionCatalogSync
             $this->syncEntities((array) ($catalog['entities'] ?? []), null, $catalog, $stats);
             $this->syncRoles((array) ($catalog['roles'] ?? []), $stats);
             $this->syncGrants($catalog, $stats);
-            $this->syncInheritance((array) ($catalog['inherits'] ?? []), $stats);
+            $this->syncInheritance($catalog, $stats);
         });
 
         $this->cache->flush();
@@ -143,21 +143,52 @@ class PermissionCatalogSync
     }
 
     /**
-     * @param  array<string, list<string>>  $inherits
+     * Each role receives the permissions of all its ancestors (transitively, so the order of the config does not matter
+     * and cycles stop), never the `admin_only` ones unless it is the admin role.
+     *
+     * @param  array<string, mixed>  $catalog
      * @param  array<string, int>  $stats
      */
-    private function syncInheritance(array $inherits, array &$stats): void
+    private function syncInheritance(array $catalog, array &$stats): void
     {
-        foreach ($inherits as $roleName => $parents) {
+        $inherits = (array) ($catalog['inherits'] ?? []);
+        $adminOnly = (array) ($catalog['admin_only'] ?? []);
+
+        foreach (array_keys($inherits) as $roleName) {
             $role = Role::where('name', $roleName)->first();
 
             if (! $role) {
                 continue;
             }
 
-            $inherited = Permission::whereHas('roles', fn ($query) => $query->whereIn('name', (array) $parents))->pluck('id')->all();
+            $inherited = Permission::whereHas('roles', fn ($query) => $query->whereIn('name', $this->ancestorsOf($roleName, $inherits)))
+                ->when($roleName !== ($catalog['admin_role'] ?? null), fn ($query) => $query->whereNotIn('name', $adminOnly))
+                ->pluck('id')->all();
             $stats['grants_added'] += count($role->permissions()->syncWithoutDetaching($inherited)['attached']);
         }
+    }
+
+    /**
+     * @param  array<string, list<string>>  $inherits
+     * @return list<string>
+     */
+    private function ancestorsOf(string $roleName, array $inherits): array
+    {
+        $ancestors = [];
+        $pending = (array) ($inherits[$roleName] ?? []);
+
+        while ($pending !== []) {
+            $parent = array_pop($pending);
+
+            if ($parent === $roleName || in_array($parent, $ancestors, true)) {
+                continue;
+            }
+
+            $ancestors[] = $parent;
+            array_push($pending, ...(array) ($inherits[$parent] ?? []));
+        }
+
+        return $ancestors;
     }
 
     private function assertEntityName(string $name): void

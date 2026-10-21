@@ -127,6 +127,40 @@ class PermissionsTest extends TestCase
         $this->assertEqualsCanonicalizing(['view_reports', 'create_reports'], Role::where('name', 'manager')->firstOrFail()->permissions()->pluck('name')->all());
     }
 
+    public function test_inheritance_is_transitive_whatever_the_order_of_the_config(): void
+    {
+        $catalog = self::CATALOG;
+        $catalog['roles']['director'] = 'roles.director';
+        $catalog['inherits'] = ['director' => ['manager'], 'manager' => ['user']];
+
+        app(PermissionCatalogSync::class)->run($catalog);
+
+        $this->assertEqualsCanonicalizing(['view_reports', 'create_reports'], Role::where('name', 'director')->firstOrFail()->permissions()->pluck('name')->all());
+    }
+
+    public function test_inheriting_from_the_admin_role_does_not_hand_out_the_admin_only_permissions(): void
+    {
+        $catalog = self::CATALOG;
+        $catalog['inherits'] = ['manager' => ['admin']];
+
+        app(PermissionCatalogSync::class)->run($catalog);
+
+        $manager = Role::where('name', 'manager')->firstOrFail()->permissions()->pluck('name')->all();
+        $this->assertNotContains('edit_admin-billing', $manager);
+        $this->assertNotContains('execute_admin-billing-refunds', $manager);
+        $this->assertContains('view_admin-billing', $manager);
+    }
+
+    public function test_an_inheritance_cycle_does_not_loop(): void
+    {
+        $catalog = self::CATALOG;
+        $catalog['inherits'] = ['manager' => ['user'], 'user' => ['manager']];
+
+        app(PermissionCatalogSync::class)->run($catalog);
+
+        $this->assertEqualsCanonicalizing(['view_reports', 'create_reports'], Role::where('name', 'user')->firstOrFail()->permissions()->pluck('name')->all());
+    }
+
     public function test_an_entity_with_an_underscore_is_rejected(): void
     {
         $this->expectException(InvalidArgumentException::class);
