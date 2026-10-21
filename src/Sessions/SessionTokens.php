@@ -135,7 +135,7 @@ class SessionTokens
         if (! $this->secretMatches($session->secret_hash, $secret)) {
             return $this->isRecentRotation($session, $secret) && $this->canUse($user)
                 ? new IssuedSession($session, $this->accessTokens->issue($user, $session), null)
-                : $this->rejectReusedSecret($session, $secret);
+                : $this->rejectReusedSecret($session);
         }
 
         if ($session->expires_at->isPast() || $session->absolute_expires_at->isPast() || ! $this->canUse($user)) {
@@ -169,12 +169,14 @@ class SessionTokens
             && $session->last_used_at->greaterThan(now()->subSeconds((int) config('secure-auth.session.reuse_grace_seconds', 10)));
     }
 
-    private function rejectReusedSecret(AuthSession $session, string $secret): null
+    /**
+     * The selector is as secret as the cookie, so a valid selector with any secret that is not the current one (nor the
+     * previous one inside the grace) means someone holds an old copy of the cookie: the whole family is closed.
+     */
+    private function rejectReusedSecret(AuthSession $session): null
     {
-        if ($session->previous_secret_hash !== null && $this->secretMatches($session->previous_secret_hash, $secret)) {
-            AuthSession::where('family_id', $session->family_id)->whereNull('revoked_at')->get()
-                ->each(fn (AuthSession $family) => $this->revoke($family, SessionRevoked::REASON_REUSE));
-        }
+        AuthSession::where('family_id', $session->family_id)->whereNull('revoked_at')->get()
+            ->each(fn (AuthSession $family) => $this->revoke($family, SessionRevoked::REASON_REUSE));
 
         return null;
     }

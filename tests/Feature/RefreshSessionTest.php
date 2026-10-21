@@ -204,14 +204,29 @@ class RefreshSessionTest extends TestCase
         $this->assertTrue(SecurityEvent::where('user_id', $user->id)->where('type', SecurityEventType::SESSION_REUSE_DETECTED)->exists());
     }
 
-    public function test_a_wrong_secret_is_rejected_without_closing_the_session(): void
+    public function test_a_secret_older_than_the_previous_one_also_closes_the_session_and_is_recorded(): void
+    {
+        $user = $this->createUser();
+        $session = $this->loginWithCookie($user);
+        $first = $this->cookieValue($this->refreshWith($session['cookie']));
+        $this->travelPastTheReuseGrace();
+        $latest = $this->cookieValue($this->refreshWith($first));
+        $this->travelPastTheReuseGrace();
+
+        $this->refreshWith($session['cookie'])->assertStatus(401);
+
+        $this->refreshWith($latest)->assertStatus(401);
+        $this->assertTrue(SecurityEvent::where('user_id', $user->id)->where('type', SecurityEventType::SESSION_REUSE_DETECTED)->exists());
+    }
+
+    public function test_a_wrong_secret_with_a_valid_selector_closes_the_session(): void
     {
         $session = $this->loginWithCookie($this->createUser());
         $selector = explode('.', $session['cookie'])[0];
 
         $this->refreshWith($selector.'.'.str_repeat('a', 48))->assertStatus(401);
 
-        $this->refreshWith($session['cookie'])->assertOk();
+        $this->refreshWith($session['cookie'])->assertStatus(401);
     }
 
     public function test_an_unknown_selector_is_rejected(): void
