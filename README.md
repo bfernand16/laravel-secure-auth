@@ -368,8 +368,9 @@ funcionando, cada pestaña por su cuenta.
 - **Revocación inmediata.** El guard comprueba en cada petición que la sesión del token (`sid`) sigue viva y que `pv`
   está al día: cerrar una sesión, cambiar la contraseña o los roles corta los tokens al momento.
 - **Secretos.** El secreto TOTP se guarda cifrado con `APP_KEY`; los códigos de recuperación y los retos, solo como
-  huella. El QR se genera en el servidor (SVG); el secreto nunca sale hacia un servicio externo. Rotar `APP_KEY` invalida
-  los secretos TOTP y, si no hay `SECURE_AUTH_JWT_SECRET`, todos los access tokens.
+  huella. El QR se genera en el servidor (SVG); el secreto nunca sale hacia un servicio externo. Si rotas `APP_KEY`, deja la
+  anterior en `APP_PREVIOUS_KEYS`: así siguen valiendo los secretos TOTP y los códigos de recuperación. Sin
+  `SECURE_AUTH_JWT_SECRET`, los access tokens vigentes dejan de valer y el cliente los renueva con la cookie.
 - **Respuestas sin caché.** Las que llevan tokens, secretos o códigos van con `Cache-Control: no-store`.
 - **Fotos, vídeos y otros medios.** Un `<img>` o `<video>` no envía el bearer. Servirlos con URLs firmadas y de vida
   corta (`URL::temporarySignedRoute`) es tarea de la aplicación; no pongas el access token en la URL.

@@ -17,6 +17,17 @@ class CodeHashingTest extends TestCase
         $this->assertFalse(CodeHasher::matches($hash, 'abcde12346'));
     }
 
+    public function test_recovery_codes_survive_an_app_key_rotation(): void
+    {
+        $user = $this->createUser();
+        $codes = app(RecoveryCodeService::class)->regenerate($user);
+        $oldKey = config('app.key');
+
+        config(['app.key' => 'base64:'.base64_encode(random_bytes(32)), 'app.previous_keys' => [$oldKey]]);
+
+        $this->assertTrue(app(RecoveryCodeService::class)->consume($user, $codes[0]));
+    }
+
     public function test_recovery_codes_have_the_configured_count_and_no_ambiguous_characters(): void
     {
         config(['secure-auth.two_factor.recovery_codes' => 8]);

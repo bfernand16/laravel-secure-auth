@@ -42,7 +42,7 @@ class RecoveryCodeService
     public function consume(Authenticatable $user, string $code): bool
     {
         $row = RecoveryCode::where('user_id', $user->getAuthIdentifier())
-            ->where('code_hash', CodeHasher::hash($this->normalize($code)))
+            ->whereIn('code_hash', CodeHasher::candidates($this->normalize($code)))
             ->whereNull('used_at')
             ->first();
 
