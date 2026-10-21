@@ -1,0 +1,14 @@
+* text=auto eol=lf
+
+# Compiled output committed on purpose (git dependencies are not built on install).
+/js/dist/** linguist-generated=true
+
+# Not needed by the Composer or pnpm archives.
+/tests export-ignore
+/js/tests export-ignore
+/phpunit.xml export-ignore
+/pint.json export-ignore
+/eslint.config.js export-ignore
+/vitest.config.ts export-ignore
+/tsconfig.json export-ignore
+/tsconfig.build.json export-ignore
