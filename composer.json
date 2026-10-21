@@ -1,0 +1,57 @@
+{
+    "name": "bfernand16/laravel-secure-auth",
+    "description": "Short-lived JWT access tokens, rotating refresh cookies, TOTP two-factor, step-up, sessions, audit log and roles & permissions for Laravel APIs.",
+    "type": "library",
+    "license": "proprietary",
+    "keywords": ["laravel", "auth", "jwt", "totp", "2fa", "permissions", "casl"],
+    "authors": [
+        {
+            "name": "Borja Fernández"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "bacon/bacon-qr-code": "^3.0",
+        "illuminate/auth": "^13.0",
+        "illuminate/console": "^13.0",
+        "illuminate/contracts": "^13.0",
+        "illuminate/database": "^13.0",
+        "illuminate/http": "^13.0",
+        "illuminate/routing": "^13.0",
+        "illuminate/support": "^13.0",
+        "lcobucci/jwt": "^5.6",
+        "pragmarx/google2fa": "^9.0"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.24",
+        "orchestra/testbench": "^11.0",
+        "phpunit/phpunit": "^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "SecureAuth\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "SecureAuth\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "SecureAuth\\SecureAuthServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "format": "pint",
+        "lint": "pint --test"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

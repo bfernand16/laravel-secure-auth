@@ -1,0 +1,36 @@
+{
+  "name": "@bfernand16/secure-auth",
+  "version": "0.1.0",
+  "description": "Browser client for bfernand16/laravel-secure-auth: in-memory access token, single-flight refresh, CASL abilities and React helpers.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./js/dist/index.js",
+  "types": "./js/dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./js/dist/index.d.ts",
+      "import": "./js/dist/index.js"
+    },
+    "./react": {
+      "types": "./js/dist/react/index.d.ts",
+      "import": "./js/dist/react/index.js"
+    }
+  },
+  "files": [
+    "js/dist"
+  ],
+  "peerDependencies": {
+    "@casl/ability": "^6.7.0",
+    "@casl/react": "^4.0.0 || ^5.0.0",
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@casl/react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  }
+}
