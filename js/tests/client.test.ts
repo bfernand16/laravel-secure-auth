@@ -75,6 +75,31 @@ describe('bootstrap', () => {
     expect(sent.filter((request) => path(request) === '/api/auth/refresh')).toHaveLength(1);
   });
 
+  it('shares the renewal with a refresh already in flight', async () => {
+    const { client, sent } = api(routes({ '/api/auth/refresh': refreshReply(), '/api/me': { status: 200, body: me() } }));
+
+    await Promise.all([client.refresh(), client.bootstrap()]);
+
+    expect(sent.filter((request) => path(request) === '/api/auth/refresh')).toHaveLength(1);
+  });
+
+  it('hands the token it gets to the other tabs', async () => {
+    const openChannel = channelHub();
+    const route = routes({ '/api/auth/refresh': refreshReply(), '/api/me': { status: 200, body: me() } });
+    const first = createAuthClient({ baseUrl: '/api', fetch: fakeFetch(route).fetch, openChannel });
+    const second = createAuthClient({ baseUrl: '/api', fetch: fakeFetch(route).fetch, openChannel });
+
+    await first.bootstrap();
+
+    expect(second.getAccessToken()).toBe(first.getAccessToken());
+  });
+
+  it('rejects when the origin check refuses the renewal, instead of showing the login', async () => {
+    const { client } = api(routes({ '/api/auth/refresh': { status: 403, body: { reason: 'csrf_rejected' } } }));
+
+    await expect(client.bootstrap()).rejects.toMatchObject({ status: 403, reason: 'csrf_rejected' });
+  });
+
   it('never writes the token to the browser storage', async () => {
     localStorage.clear();
     sessionStorage.clear();

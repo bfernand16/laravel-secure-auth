@@ -53,6 +53,12 @@ type ChannelMessage = { type: 'session'; token: string; expiresAt: number; me: M
 
 type Authorization = { token?: unknown; expires_in?: unknown };
 
+/** How a renewal with the cookie ended: a new token, no session (guest), or a failure that says nothing about the session. */
+type Renewal = { kind: 'renewed' } | { kind: 'ended' } | { kind: 'failed'; error: Error };
+
+const RENEWED: Renewal = { kind: 'renewed' };
+const ENDED: Renewal = { kind: 'ended' };
+
 const HTTP_NO_CONTENT = 204;
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
@@ -106,7 +112,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
   let token: string | null = null;
   let expiresAt = 0;
   let state: AuthState = { status: 'unknown', me: null };
-  let refreshing: Promise<boolean> | null = null;
+  let refreshing: Promise<Renewal> | null = null;
   let bootstrapping: Promise<AuthState> | null = null;
   let expiredNotified = false;
   /** Bumped on every logout, so a renewal that answers afterwards is discarded instead of reviving the session. */
@@ -200,54 +206,69 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     });
   }
 
-  async function requestRefresh(): Promise<boolean> {
+  async function requestRefresh(): Promise<Renewal> {
     const generation = sessionGeneration;
     let response: Response;
 
     try {
       response = await cookieRequest('auth/refresh');
-    } catch {
-      return false;
+    } catch (error) {
+      return { kind: 'failed', error: error instanceof Error ? error : new Error('The session could not be checked.') };
     }
 
     if (response.status === HTTP_NO_CONTENT) {
       clearSession(false);
 
-      return false;
+      return ENDED;
     }
 
     if (response.status === HTTP_UNAUTHORIZED) {
       sessionEnded();
 
-      return false;
+      return ENDED;
+    }
+
+    if (!response.ok) {
+      return { kind: 'failed', error: await toError(response) };
     }
 
     const body = (await readJson(response)) as { authorization?: Authorization } | null;
     const next = body?.authorization?.token;
 
-    if (!response.ok || typeof next !== 'string' || generation !== sessionGeneration) {
-      return false;
+    if (generation !== sessionGeneration) {
+      return ENDED;
+    }
+
+    if (typeof next !== 'string') {
+      clearSession(false);
+
+      return ENDED;
     }
 
     storeToken(next, expiryOf(next, body?.authorization?.expires_in));
     broadcast({ type: 'session', token: next, expiresAt, me: state.me });
 
-    return true;
+    return RENEWED;
   }
 
-  function refreshWithLock(tokenBefore: string | null): Promise<boolean> {
-    const run = async () => (token !== null && token !== tokenBefore && isFresh() ? true : requestRefresh());
+  function refreshWithLock(tokenBefore: string | null): Promise<Renewal> {
+    const run = async () => (token !== null && token !== tokenBefore && isFresh() ? RENEWED : requestRefresh());
     const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
 
     return locks ? locks.request(LOCK_NAME, run) : run();
   }
 
-  function refresh(): Promise<boolean> {
+  /** One renewal at a time in this tab (shared promise) and across tabs (`navigator.locks`). */
+  function renew(): Promise<Renewal> {
     refreshing ??= refreshWithLock(token).finally(() => {
       refreshing = null;
     });
 
     return refreshing;
+  }
+
+  async function refresh(): Promise<boolean> {
+    return (await renew()).kind === 'renewed';
   }
 
   function withBearer(init: RequestInit | undefined, bearer: string | null): RequestInit {
@@ -341,33 +362,15 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
   async function bootstrap(): Promise<AuthState> {
     bootstrapping ??= (async () => {
       if (!isFresh()) {
-        let response: Response;
+        const renewal = await renew();
 
-        try {
-          response = await cookieRequest('auth/refresh');
-        } catch (error) {
-          throw error instanceof Error ? error : new Error('The session could not be checked.');
+        if (renewal.kind === 'failed') {
+          throw renewal.error;
         }
 
-        if (response.status === HTTP_NO_CONTENT || response.status === HTTP_UNAUTHORIZED || response.status === HTTP_FORBIDDEN) {
-          clearSession(false);
-
+        if (renewal.kind === 'ended') {
           return state;
         }
-
-        if (!response.ok) {
-          throw await toError(response);
-        }
-
-        const body = (await response.json()) as { authorization?: Authorization };
-
-        if (typeof body.authorization?.token !== 'string') {
-          clearSession(false);
-
-          return state;
-        }
-
-        storeToken(body.authorization.token, expiryOf(body.authorization.token, body.authorization.expires_in));
       }
 
       await loadMeInto();
