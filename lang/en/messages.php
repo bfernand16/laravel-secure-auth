@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'invalid_credentials' => 'These credentials do not match our records.',
+    'account_blocked' => 'This account cannot sign in.',
+    'email_unverified' => 'Verify your email address before signing in.',
+    'token_missing' => 'Unauthenticated.',
+    'token_invalid' => 'Unauthenticated.',
+    'session_revoked' => 'Your session has ended. Sign in again.',
+    'session_invalid' => 'Your session has ended. Sign in again.',
+    'permissions_stale' => 'Your permissions changed. Refresh the session.',
+    'forbidden' => 'You do not have permission to do this.',
+    'csrf_rejected' => 'The request was rejected.',
+    'mfa_required' => 'Confirm it is you before continuing.',
+    'two_factor_required' => 'Set up two-step verification to continue.',
+    'two_factor_code_invalid' => 'The code is not valid.',
+    'two_factor_invalid' => 'The code is not valid.',
+    'two_factor_attempts_exhausted' => 'Too many wrong codes. Sign in again.',
+    'two_factor_challenge_invalid' => 'The sign-in step has expired. Sign in again.',
+    'two_factor_throttled' => 'Too many wrong codes. Try again later.',
+    'two_factor_already_enabled' => 'Two-step verification is already enabled.',
+    'two_factor_not_enabled' => 'Two-step verification is not enabled.',
+    'two_factor_mandatory' => 'Two-step verification is mandatory for this account.',
+    'wrong_password' => 'The password is not correct.',
+    'throttled' => 'Too many attempts. Try again in :seconds seconds.',
+];
