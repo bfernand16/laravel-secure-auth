@@ -75,7 +75,7 @@ class MeController extends Controller
     }
 
     /** Changes the password, closes every session (and their tokens) and opens a fresh one for this device. */
-    public function password(Request $request): JsonResponse
+    public function password(Request $request, StepUpGate $gate): JsonResponse
     {
         $user = $this->user($request);
         $data = $request->validate([
@@ -83,9 +83,7 @@ class MeController extends Controller
             'password' => ['required', 'string', 'max:1024', 'confirmed', 'different:current_password', Password::defaults()],
         ]);
 
-        if (! Hash::check($data['current_password'], $user->getAuthPassword())) {
-            throw ValidationException::withMessages(['current_password' => [__('secure-auth::messages.wrong_password')]]);
-        }
+        $gate->checkPassword($user, $data['current_password']);
 
         $user->forceFill([$user->getAuthPasswordName() => Hash::make($data['password'])])->save();
 

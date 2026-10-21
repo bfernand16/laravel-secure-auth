@@ -166,6 +166,19 @@ class SessionsTest extends TestCase
         $this->getJson('/api/me', $this->bearer($mine['token']))->assertOk();
     }
 
+    public function test_wrong_current_passwords_on_the_password_change_count_toward_the_account_cap(): void
+    {
+        config(['secure-auth.rate_limits.two_factor_failures' => 3]);
+        $mine = $this->loginWithCookie($this->createUser());
+        $change = fn (string $current) => $this->putJson('/api/me/password', ['current_password' => $current, 'password' => 'brand-new-pass-1', 'password_confirmation' => 'brand-new-pass-1'], $this->bearer($mine['token']));
+
+        foreach (range(1, 3) as $attempt) {
+            $change('wrong-'.$attempt)->assertStatus(422);
+        }
+
+        $change(self::PASSWORD)->assertStatus(429);
+    }
+
     public function test_changing_the_password_needs_a_recent_authentication(): void
     {
         $session = $this->loginWithCookie($this->createUser());
