@@ -83,7 +83,7 @@ class SecurityEventsTest extends TestCase
         AuthSession::whereKeyNot($this->sessionIdOf($live['cookie']))->update(['expires_at' => now()->subMinute()]);
         LoginChallenge::create(['user_id' => $user->id, 'token_hash' => str_repeat('a', 64), 'expires_at' => now()->subMinute()]);
         $pending = TwoFactorMethod::create(['user_id' => $user->id, 'type' => 'totp', 'secret' => 'X']);
-        $pending->forceFill(['created_at' => now()->subDays(2)])->save();
+        $pending->forceFill(['created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2)])->save();
         SecurityEvent::create(['user_id' => $user->id, 'type' => 'login', 'created_at' => now()->subDays(181)]);
 
         $this->artisan('secure-auth:prune')->assertSuccessful();

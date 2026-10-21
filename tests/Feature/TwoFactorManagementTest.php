@@ -10,6 +10,7 @@ use SecureAuth\Tests\Concerns\UsesAuthSessions;
 use SecureAuth\Tests\Concerns\UsesTwoFactor;
 use SecureAuth\Tests\Fixtures\User;
 use SecureAuth\Tests\TestCase;
+use SecureAuth\TwoFactor\TwoFactorManager;
 
 class TwoFactorManagementTest extends TestCase
 {
@@ -96,6 +97,18 @@ class TwoFactorManagementTest extends TestCase
         $this->postJson('/api/me/two-factor/totp', [], $this->auth())->assertOk();
 
         $this->getJson('/api/me/two-factor', $this->auth())->assertJsonPath('enabled', false);
+    }
+
+    public function test_prune_keeps_an_enrolment_restarted_today_even_if_first_started_days_ago(): void
+    {
+        $manager = app(TwoFactorManager::class);
+        $manager->startTotp($this->user);
+        $this->travel(2)->days();
+        $manager->startTotp($this->user);
+
+        $this->artisan('secure-auth:prune')->assertSuccessful();
+
+        $this->assertNotNull($manager->pendingTotp($this->user));
     }
 
     public function test_a_wrong_code_does_not_confirm_the_app(): void

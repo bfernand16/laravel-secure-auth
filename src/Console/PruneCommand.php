@@ -18,7 +18,7 @@ class PruneCommand extends Command
     {
         $sessionCount = $sessions->prune();
         $challengeCount = $challenges->prune();
-        $pendingCount = TwoFactorMethod::whereNull('confirmed_at')->where('created_at', '<', now()->subDay())->delete();
+        $pendingCount = TwoFactorMethod::whereNull('confirmed_at')->where('updated_at', '<', now()->subDay())->delete();
         $eventCount = $events->prune();
 
         $this->info("Sessions: {$sessionCount}. Challenges: {$challengeCount}. Pending TOTP: {$pendingCount}. Security events: {$eventCount}.");
