@@ -205,7 +205,7 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
       return false;
     }
 
-    if (response.status === HTTP_UNAUTHORIZED || response.status === HTTP_FORBIDDEN) {
+    if (response.status === HTTP_UNAUTHORIZED) {
       sessionEnded();
 
       return false;

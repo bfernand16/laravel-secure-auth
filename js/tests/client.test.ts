@@ -224,6 +224,15 @@ describe('authenticated requests', () => {
     expect([client.getState().status, client.getAccessToken() !== null]).toEqual(['authenticated', true]);
   });
 
+  it('keep the session when the renewal is refused by the origin check', async () => {
+    const onSessionExpired = vi.fn();
+    const { client } = await signedIn((request) => (path(request) === '/api/auth/refresh' ? { status: 403, body: { reason: 'csrf_rejected' } } : { status: 401 }), fakeJwt(), { onSessionExpired });
+
+    await client.fetch('reports');
+
+    expect([client.getState().status, onSessionExpired.mock.calls.length]).toEqual(['authenticated', 0]);
+  });
+
   it('pass other errors through without renewing', async () => {
     const { client, sent } = await signedIn(() => ({ status: 403, body: { reason: 'forbidden' } }));
 
