@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'invalid_credentials' => 'El correo o la contraseña no son correctos.',
+    'account_blocked' => 'Esta cuenta no puede iniciar sesión.',
+    'email_unverified' => 'Verifica tu correo antes de iniciar sesión.',
+    'token_missing' => 'No has iniciado sesión.',
+    'token_invalid' => 'No has iniciado sesión.',
+    'session_revoked' => 'Tu sesión ha terminado. Vuelve a iniciar sesión.',
+    'session_invalid' => 'Tu sesión ha terminado. Vuelve a iniciar sesión.',
+    'permissions_stale' => 'Tus permisos han cambiado. Renueva la sesión.',
+    'forbidden' => 'No tienes permiso para hacer esto.',
+    'csrf_rejected' => 'La petición se ha rechazado.',
+    'mfa_required' => 'Confirma que eres tú para continuar.',
+    'two_factor_required' => 'Configura la verificación en dos pasos para continuar.',
+    'two_factor_code_invalid' => 'El código no es válido.',
+    'two_factor_invalid' => 'El código no es válido.',
+    'two_factor_attempts_exhausted' => 'Demasiados códigos incorrectos. Vuelve a iniciar sesión.',
+    'two_factor_challenge_invalid' => 'El paso de verificación ha caducado. Vuelve a iniciar sesión.',
+    'two_factor_throttled' => 'Demasiados códigos incorrectos. Inténtalo más tarde.',
+    'two_factor_already_enabled' => 'La verificación en dos pasos ya está activada.',
+    'two_factor_not_enabled' => 'La verificación en dos pasos no está activada.',
+    'two_factor_mandatory' => 'La verificación en dos pasos es obligatoria en esta cuenta.',
+    'wrong_password' => 'La contraseña no es correcta.',
+    'throttled' => 'Demasiados intentos. Vuelve a intentarlo en :seconds segundos.',
+];
