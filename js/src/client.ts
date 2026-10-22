@@ -27,12 +27,17 @@ export interface AuthClientOptions {
   onTwoFactorRequired?: () => void;
 }
 
+export interface LogoutResult {
+  revoked: boolean;
+}
+
 export interface AuthClient {
   /** Refreshes with the cookie and loads `/me`. Call it before rendering any protected UI. Rejects on network errors. */
   bootstrap(): Promise<AuthState>;
   login(credentials: LoginCredentials): Promise<LoginResult>;
   verifyTwoFactor(attempt: TwoFactorAttempt): Promise<LoginResult>;
-  logout(): Promise<void>;
+  /** Closes the local session always; `revoked` is false when the server could not be told (offline), so its cookie lives until it expires. */
+  logout(): Promise<LogoutResult>;
   /** Exchanges the cookie for a new access token. Concurrent calls share one request. */
   refresh(): Promise<boolean>;
   loadMe(): Promise<MeResponse>;
@@ -41,6 +46,8 @@ export interface AuthClient {
   /** `fetch` with the bearer token; refreshes when it is about to expire and retries once after a 401. */
   fetch(path: string, init?: RequestInit): Promise<Response>;
   getAccessToken(): string | null;
+  /** The access token, renewed first when it is about to expire. `null` when there is no session. Use it for URLs and sockets that cannot go through `fetch`. */
+  getFreshAccessToken(): Promise<string | null>;
   getState(): AuthState;
   subscribe(listener: () => void): () => void;
   currentUserId(): string | null;
@@ -411,13 +418,17 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     },
 
     async logout() {
+      let revoked = false;
+
       try {
-        await cookieRequest('auth/logout');
+        revoked = (await cookieRequest('auth/logout')).ok;
       } catch {
         // Offline: the local session is closed anyway; the cookie dies with its expiry.
       }
 
       clearSession(true);
+
+      return { revoked };
     },
 
     async stepUp(attempt) {
@@ -433,6 +444,15 @@ export function createAuthClient(options: AuthClientOptions): AuthClient {
     },
 
     getAccessToken: () => token,
+
+    async getFreshAccessToken() {
+      if (token !== null && !isFresh()) {
+        await refresh();
+      }
+
+      return token;
+    },
+
     getState: () => state,
 
     subscribe(listener) {
