@@ -1,6 +1,6 @@
 {
   "name": "@bfernand16/secure-auth",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Browser client for bfernand16/laravel-secure-auth: in-memory access token, single-flight refresh, CASL abilities and React helpers.",
   "license": "UNLICENSED",
   "type": "module",

@@ -305,7 +305,9 @@ if (result.status === 'two_factor') {
   await auth.verifyTwoFactor({ challenge: result.challenge, method: 'totp', code });
 }
 
-await auth.logout();
+const { revoked } = await auth.logout(); // revoked=false: sin conexión, la cookie vive hasta caducar
+
+const token = await auth.getFreshAccessToken(); // renovado si está a punto de caducar; null sin sesión
 ```
 
 Los fallos lanzan `AuthError` con `status`, `reason` y, en un código incorrecto, `attemptsRemaining`.

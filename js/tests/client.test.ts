@@ -205,6 +205,27 @@ describe('authenticated requests', () => {
     expect(sent.map(path)).toEqual(['/api/reports', '/api/reports']);
   });
 
+  it('hands out the token as it is while it is fresh, and renews first when it is about to expire', async () => {
+    const token = fakeJwt();
+    const fresh = fakeJwt('7', 30);
+    const { client, sent } = await signedIn((request) => (path(request) === '/api/auth/refresh' ? refreshReply(fresh) : OK), token);
+
+    const first = await client.getFreshAccessToken();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 9.8 * 60 * 1000);
+    const second = await client.getFreshAccessToken();
+    vi.useRealTimers();
+
+    expect([first, second, sent.map(path)]).toEqual([token, fresh, ['/api/auth/refresh']]);
+  });
+
+  it('has no fresh token without a session', async () => {
+    const { client, sent } = api(() => OK);
+
+    expect(await client.getFreshAccessToken()).toBeNull();
+    expect(sent).toEqual([]);
+  });
+
   it('renew once and retry after a 401', async () => {
     const fresh = fakeJwt('7', 15);
     const { client, sent } = await signedIn((request) => {
@@ -329,8 +350,9 @@ describe('logout', () => {
     const { client, sent } = api(routes({ '/api/auth/login': refreshReply(token), '/api/me': { status: 200, body: me() }, '/api/auth/logout': OK }));
     await client.login({ email: 'ana@example.test', password: 'secret' });
 
-    await client.logout();
+    const result = await client.logout();
 
+    expect(result).toEqual({ revoked: true });
     const logout = sent.find((request) => path(request) === '/api/auth/logout');
     expect([logout?.credentials, logout?.headers.get('Authorization')]).toEqual(['include', `Bearer ${token}`]);
     expect([client.getAccessToken(), client.getState().status]).toEqual([null, 'guest']);
@@ -348,9 +370,9 @@ describe('logout', () => {
     await client.login({ email: 'ana@example.test', password: 'secret' });
     online = false;
 
-    await client.logout();
+    const result = await client.logout();
 
-    expect(client.getAccessToken()).toBeNull();
+    expect([result, client.getAccessToken()]).toEqual([{ revoked: false }, null]);
   });
 
   it('ignores a renewal that answers after the logout', async () => {

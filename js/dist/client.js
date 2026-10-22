@@ -264,13 +264,15 @@ export function createAuthClient(options) {
             return openSession(response);
         },
         async logout() {
+            let revoked = false;
             try {
-                await cookieRequest('auth/logout');
+                revoked = (await cookieRequest('auth/logout')).ok;
             }
             catch {
                 // Offline: the local session is closed anyway; the cookie dies with its expiry.
             }
             clearSession(true);
+            return { revoked };
         },
         async stepUp(attempt) {
             const response = await authorizedFetch('me/step-up', {
@@ -283,6 +285,12 @@ export function createAuthClient(options) {
             }
         },
         getAccessToken: () => token,
+        async getFreshAccessToken() {
+            if (token !== null && !isFresh()) {
+                await refresh();
+            }
+            return token;
+        },
         getState: () => state,
         subscribe(listener) {
             listeners.add(listener);
