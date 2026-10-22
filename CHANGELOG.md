@@ -3,6 +3,11 @@
 Todas las versiones siguen [SemVer](https://semver.org/lang/es/). Los dos paquetes del repositorio (Composer y pnpm)
 comparten número de versión y etiqueta git (`vX.Y.Z`).
 
+## [0.1.1] - Sin publicar
+
+- El inicio de sesión vuelve a calcular el hash de la contraseña cuando los parámetros del algoritmo han cambiado
+  (por ejemplo, de bcrypt a Argon2id), solo tras una contraseña correcta y una cuenta que puede entrar.
+
 ## [0.1.0] - Sin publicar
 
 Primera versión, extraída de la autenticación de Liga Fantasy.

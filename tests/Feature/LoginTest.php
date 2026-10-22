@@ -2,6 +2,7 @@
 
 namespace SecureAuth\Tests\Feature;
 
+use Illuminate\Support\Facades\Hash;
 use SecureAuth\Audit\SecurityEventType;
 use SecureAuth\Models\AuthSession;
 use SecureAuth\Models\SecurityEvent;
@@ -27,6 +28,35 @@ class LoginTest extends TestCase
             ->assertJsonPath('authorization.expires_in', 600)
             ->assertHeader('Cache-Control', 'no-store, private');
         $this->assertSame(1, AuthSession::where('user_id', $user->id)->count());
+    }
+
+    public function test_a_password_hashed_with_old_parameters_is_rehashed_on_login(): void
+    {
+        $old = password_hash(self::PASSWORD, PASSWORD_BCRYPT, ['cost' => 4]);
+        $user = $this->createUser();
+        $user->forceFill(['password' => $old])->save();
+        config(['hashing.driver' => 'bcrypt', 'hashing.bcrypt.rounds' => 12, 'hashing.bcrypt.verify' => false]);
+        Hash::forgetDrivers();
+
+        $this->postLogin(['email' => $user->email, 'password' => self::PASSWORD])->assertOk();
+
+        $stored = $user->fresh()->password;
+        $this->assertNotSame($old, $stored);
+        $this->assertFalse(Hash::needsRehash($stored));
+        $this->assertTrue(Hash::check(self::PASSWORD, $stored));
+    }
+
+    public function test_a_wrong_password_never_changes_the_stored_hash(): void
+    {
+        $old = password_hash(self::PASSWORD, PASSWORD_BCRYPT, ['cost' => 4]);
+        $user = $this->createUser();
+        $user->forceFill(['password' => $old])->save();
+        config(['hashing.driver' => 'bcrypt', 'hashing.bcrypt.rounds' => 12, 'hashing.bcrypt.verify' => false]);
+        Hash::forgetDrivers();
+
+        $this->postLogin(['email' => $user->email, 'password' => 'wrong-password-1'])->assertUnauthorized();
+
+        $this->assertSame($old, $user->fresh()->password);
     }
 
     public function test_the_access_token_lifetime_is_configurable(): void
