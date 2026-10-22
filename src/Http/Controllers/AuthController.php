@@ -56,11 +56,22 @@ class AuthController extends Controller
             return $blocked;
         }
 
+        $this->rehashPassword($user, (string) $data['password']);
+
         if ($this->twoFactor->enabled($user)) {
             return new JsonResponse(['two_factor' => true] + $this->challenges->open($user, $request->boolean('remember')));
         }
 
         return $this->openSession($user, $request, $request->boolean('remember'), [SessionTokens::AMR_PASSWORD]);
+    }
+
+    private function rehashPassword(Authenticatable $user, string $password): void
+    {
+        if (! Hash::needsRehash($user->getAuthPassword())) {
+            return;
+        }
+
+        $user->forceFill([$user->getAuthPasswordName() => Hash::make($password)])->save();
     }
 
     public function verifyTwoFactor(Request $request): JsonResponse
